@@ -27,19 +27,19 @@ int main(void)
 
 	if ((sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0) 
 	{
-		printf("socket");
+		perror("socket");
 		return -1;
 	}
 
 	if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0) 
 	{
-		printf("bind");
+		perror("bind");
 		return -1;
 	}
 
 	if (listen(sockfd, BACKLOG) < 0)
 	{
-		printf("listen");
+		perror("listen");
 		return -1;
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
@@ -47,20 +47,17 @@ int main(void)
 	struct sockaddr_storage client_addr;
 	socklen_t addr_size = sizeof client_addr;
 
-	int *client_fd = malloc(sizeof(int));
+	int client_fd;
 	
 	printf("Waiting for a connection...\n");
 
-	*client_fd = accept(sockfd, (struct sockaddr*)&client_addr, &addr_size);
+	client_fd = accept(sockfd, (struct sockaddr*) &client_addr, &addr_size);
 	printf("Accepted a connection!\n");
 
-	char *message = "Hello from the server!";
+	char* message = "HTTP/1.1 200 OK\r\n\r\n";
+	send(client_fd, message, strlen(message), 0);
 
-	send(*client_fd, message, strlen(message), 0);
-
-	free(client_fd);
-	close(*client_fd);
-
+	close(client_fd);
 	printf("Closed the connection!\n");
 	return 0;
 }
