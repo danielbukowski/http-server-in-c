@@ -55,6 +55,7 @@ int main(void)
 
 	char* buffer = calloc(MAX_BUFFER_SIZE, sizeof(char));
 	int received_bytes = 0;
+
 	received_bytes = recv(client_fd, buffer, (MAX_BUFFER_SIZE - 2), 0);
 
 	if (received_bytes == -1) 
@@ -70,7 +71,7 @@ int main(void)
 		"Content-Type: text/html; charset=UTF-8\r\n"
 		"Content-Length: %d\r\n"
 		"\r\n"
-		"%s\r", (int) strlen(message), message
+		"%s", (int) strlen(message), message
 	);
 
 	send(client_fd, response, strlen(response), 0);
