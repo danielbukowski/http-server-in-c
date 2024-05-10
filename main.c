@@ -9,6 +9,14 @@
 #define BACKLOG 5
 #define MAX_BUFFER_SIZE 8192
 
+#define EMPTY_SPACE " "
+
+typedef struct Request_line {
+	char* method;
+	char* path;
+	char* version;
+} Request_line;
+
 int main(void)
 {
 	int sockfd;
