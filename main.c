@@ -6,16 +6,25 @@
 #include <unistd.h>
 
 #define SERVER_PORT "8080"
+#define HTTP_SERVER_VERSION "HTTP/1.1"
 #define BACKLOG 5
-#define MAX_BUFFER_SIZE 8192
+#define MAX_BUFFER_SIZE 4096
 
 #define EMPTY_SPACE " "
 
-typedef struct Request_line {
+typedef struct request_line 
+{
 	char* method;
 	char* path;
 	char* version;
-} Request_line;
+} request_line;
+
+typedef struct request_details 
+{
+	request_line request_line;
+	char* headers;
+	char* body;
+} request;
 
 int main(void)
 {
@@ -52,7 +61,7 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	struct sockaddr_storage client_addr;
+	struct sockaddr_storage client_addr = { 0 };
 	socklen_t addr_size = sizeof client_addr;
 
 	int client_fd;
@@ -61,7 +70,7 @@ int main(void)
 	client_fd = accept(sockfd, (struct sockaddr*) &client_addr, &addr_size);
 	printf("Accepted a connection!\n");
 
-	char* buffer = calloc(MAX_BUFFER_SIZE, sizeof(char));
+	char* buffer = malloc(MAX_BUFFER_SIZE * sizeof(char));
 	int received_bytes = 0;
 
 	received_bytes = recv(client_fd, buffer, (MAX_BUFFER_SIZE - 2), 0);
@@ -70,16 +79,49 @@ int main(void)
 	{
 		perror("recv");
 		close(client_fd);
+		return -1;
 	}
+	buffer[MAX_BUFFER_SIZE - 1] = '\0';
+
+	char* client_request = (char*) malloc((received_bytes + 1) * sizeof(char));
+	strncpy(client_request, buffer, received_bytes);
+
+	char* raw_request_line = strtok_r(client_request, "\r\n", &client_request);
+
+	request_line request_line = {
+		.method = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line),
+		.path = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line),
+		.version = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line)
+	};
+
+	char* raw_body;
+	if ((raw_body = strstr(client_request, "\r\n\r\n")) == NULL) 
+	{
+		perror("parsing error");
+		return -1;
+	}
+
+	int body_index = (int) (raw_body - client_request);
+	// raw_body + "\r\n\r\n"
+	raw_body = raw_body + 4;
+	char* raw_headers = calloc((body_index + 1), sizeof(char));
+	// client_request + 1 to remove the leading '\n' in the client_request 
+	strncpy(raw_headers, client_request + 1, body_index - 1);
+
+	request request = {
+		.request_line = request_line,
+		.headers = raw_headers,
+		.body = raw_body
+	};
 
 	char* message = "Hello from the server";
 	char* response = calloc(1024, sizeof(char));
 
 	sprintf(response,"HTTP/1.1 200 OK\r\n"
 		"Content-Type: text/html; charset=UTF-8\r\n"
-		"Content-Length: %d\r\n"
+		"Content-Length: %zu\r\n"
 		"\r\n"
-		"%s", (int) strlen(message), message
+		"%s", strlen(message), message
 	);
 
 	send(client_fd, response, strlen(response), 0);
@@ -87,6 +129,8 @@ int main(void)
 	printf("Closed the connection!\n");
 
 	free(buffer);
+	free(raw_headers);
 	free(response);
+
 	return 0;
 }
