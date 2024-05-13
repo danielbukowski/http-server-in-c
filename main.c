@@ -8,7 +8,7 @@
 #define SERVER_PORT "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
 #define BACKLOG 5
-#define MAX_BUFFER_SIZE 4096
+#define MAX_BUFFER_SIZE 8192
 
 #define EMPTY_SPACE " "
 
@@ -70,23 +70,31 @@ int main(void)
 	client_fd = accept(sockfd, (struct sockaddr*) &client_addr, &addr_size);
 	printf("Accepted a connection!\n");
 
-	char* buffer = malloc(MAX_BUFFER_SIZE * sizeof(char));
-	int received_bytes = 0;
+	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
+	int recv_bytes = 0;
 
-	received_bytes = recv(client_fd, buffer, (MAX_BUFFER_SIZE - 2), 0);
+	recv_bytes = recv(client_fd, buffer, MAX_BUFFER_SIZE, 0);
 
-	if (received_bytes == -1) 
+	buffer[recv_bytes] = '\0';
+
+	if (recv_bytes == -1)
 	{
-		perror("recv");
+		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
+		perror("recv");
 		return -1;
 	}
-	buffer[MAX_BUFFER_SIZE - 1] = '\0';
 
-	char* client_request = (char*) malloc((received_bytes + 1) * sizeof(char));
-	strncpy(client_request, buffer, received_bytes);
+	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
 
-	char* raw_request_line = strtok_r(client_request, "\r\n", &client_request);
+	if (raw_request_line == NULL) {
+		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+		send(client_fd, error_message, strlen(error_message), 0);
+		close(client_fd);
+		perror("request line is null");
+		return -1;
+	}
 
 	request_line request_line = {
 		.method = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line),
@@ -94,19 +102,20 @@ int main(void)
 		.version = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line)
 	};
 
-	char* raw_body;
-	if ((raw_body = strstr(client_request, "\r\n\r\n")) == NULL) 
-	{
-		perror("parsing error");
+	char* raw_body = strstr(buffer, "\r\n\r\n");
+
+	if (raw_body == NULL) {
+		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+		send(client_fd, error_message, strlen(error_message), 0);
+		close(client_fd);
+		perror("raw_body is null");
 		return -1;
 	}
 
-	int body_index = (int) (raw_body - client_request);
-	// raw_body + "\r\n\r\n"
-	raw_body = raw_body + 4;
-	char* raw_headers = calloc((body_index + 1), sizeof(char));
-	// client_request + 1 to remove the leading '\n' in the client_request 
-	strncpy(raw_headers, client_request + 1, body_index - 1);
+	int body_index = (int) (raw_body - buffer);
+
+	char raw_headers[body_index];
+	strncpy(raw_headers, buffer, body_index);
 
 	request request = {
 		.request_line = request_line,
@@ -125,12 +134,10 @@ int main(void)
 	);
 
 	send(client_fd, response, strlen(response), 0);
+
 	close(client_fd);
 	printf("Closed the connection!\n");
 
-	free(buffer);
-	free(raw_headers);
 	free(response);
-
 	return 0;
 }
