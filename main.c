@@ -76,6 +76,7 @@ int main(void)
 	recv_bytes = recv(client_fd, buffer, MAX_BUFFER_SIZE, 0);
 
 	buffer[recv_bytes] = '\0';
+	char* buffer_copy = buffer;
 
 	if (recv_bytes == -1)
 	{
@@ -146,6 +147,10 @@ int main(void)
 	close(client_fd);
 	printf("Closed the connection!\n");
 
+	freeaddrinfo(res);
 	free(response);
+	free(buffer_copy);
+	buffer_copy = NULL;
+
 	return 0;
 }
