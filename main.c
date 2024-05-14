@@ -102,6 +102,14 @@ int main(void)
 		.version = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line)
 	};
 
+	if (request_line.version == NULL || strcmp(HTTP_SERVER_VERSION, request_line.version) != 0) {
+		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
+		send(client_fd, error_message, strlen(error_message), 0);
+		close(client_fd);
+		perror("http version is not supported");
+		return -1;
+	}
+
 	char* raw_body = strstr(buffer, "\r\n\r\n");
 
 	if (raw_body == NULL) {
