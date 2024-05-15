@@ -70,6 +70,14 @@ int main(void)
 	client_fd = accept(sockfd, (struct sockaddr*) &client_addr, &addr_size);
 	printf("Accepted a connection!\n");
 
+	handle_client_request(client_fd);
+
+	freeaddrinfo(res);
+	return 0;
+}
+
+void handle_client_request(int client_fd) 
+{
 	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
 	int recv_bytes = 0;
 
@@ -83,8 +91,7 @@ int main(void)
 		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
-		perror("recv");
-		return -1;
+		return ;
 	}
 
 	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
@@ -93,8 +100,7 @@ int main(void)
 		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
-		perror("request line is null");
-		return -1;
+		return;
 	}
 
 	request_line request_line = {
@@ -107,8 +113,7 @@ int main(void)
 		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
-		perror("http version is not supported");
-		return -1;
+		return;
 	}
 
 	char* raw_body = strstr(buffer, "\r\n\r\n");
@@ -117,11 +122,10 @@ int main(void)
 		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
-		perror("raw_body is null");
-		return -1;
+		return;
 	}
 
-	int body_index = (int) (raw_body - buffer);
+	int body_index = (int)(raw_body - buffer);
 
 	char raw_headers[body_index];
 	strncpy(raw_headers, buffer, body_index);
@@ -135,7 +139,7 @@ int main(void)
 	char* message = "Hello from the server";
 	char* response = calloc(1024, sizeof(char));
 
-	sprintf(response,"HTTP/1.1 200 OK\r\n"
+	sprintf(response, "HTTP/1.1 200 OK\r\n"
 		"Content-Type: text/html; charset=UTF-8\r\n"
 		"Content-Length: %zu\r\n"
 		"\r\n"
@@ -143,14 +147,9 @@ int main(void)
 	);
 
 	send(client_fd, response, strlen(response), 0);
-
 	close(client_fd);
-	printf("Closed the connection!\n");
 
-	freeaddrinfo(res);
 	free(response);
 	free(buffer_copy);
 	buffer_copy = NULL;
-
-	return 0;
 }
