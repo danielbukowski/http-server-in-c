@@ -24,7 +24,7 @@ typedef struct request_details
 	request_line request_line;
 	char* headers;
 	char* body;
-} request;
+} request_details;
 
 int main(void)
 {
@@ -130,7 +130,7 @@ void handle_client_request(int client_fd)
 	char raw_headers[body_index];
 	strncpy(raw_headers, buffer, body_index);
 
-	request request = {
+	request_details request_details = {
 		.request_line = request_line,
 		.headers = raw_headers,
 		.body = raw_body
