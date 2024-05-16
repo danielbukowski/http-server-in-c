@@ -127,15 +127,16 @@ void handle_client_request(int client_fd)
 		return;
 	}
 
-	int body_index = (int)(raw_body - buffer);
+	size_t body_index = raw_body - buffer;
 
-	char raw_headers[body_index];
-	strncpy(raw_headers, buffer, body_index);
+	buffer[body_index] = '\0';
 
 	request_details request_details = {
 		.request_line = request_line,
-		.headers = raw_headers,
-		.body = raw_body
+		//skip '\n\ character
+		.headers = buffer + 1,
+		//skip '\r\n\r\n' characters
+		.body = &buffer[body_index + 4]
 	};
 
 	char* message = "Hello from the server";
