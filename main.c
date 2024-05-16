@@ -12,6 +12,8 @@
 
 #define EMPTY_SPACE " "
 
+void handle_client_request(int client_fd);
+
 typedef struct request_line 
 {
 	char* method;
