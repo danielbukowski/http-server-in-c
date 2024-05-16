@@ -86,7 +86,7 @@ void handle_client_request(int client_fd)
 	recv_bytes = recv(client_fd, buffer, MAX_BUFFER_SIZE, 0);
 
 	buffer[recv_bytes] = '\0';
-	char* buffer_copy = buffer;
+	char* ptr_buffer = buffer;
 
 	if (recv_bytes == -1)
 	{
@@ -152,6 +152,6 @@ void handle_client_request(int client_fd)
 	close(client_fd);
 
 	free(response);
-	free(buffer_copy);
-	buffer_copy = NULL;
+	free(ptr_buffer);
+	ptr_buffer = NULL;
 }
