@@ -143,7 +143,7 @@ void handle_client_request(int client_fd)
 	char* response = calloc(1024, sizeof(char));
 
 	sprintf(response, "HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/html; charset=UTF-8\r\n"
+		"Content-Type: text/plain; charset=UTF-8\r\n"
 		"Content-Length: %zu\r\n"
 		"\r\n"
 		"%s", strlen(message), message
