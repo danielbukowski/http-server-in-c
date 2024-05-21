@@ -14,6 +14,12 @@
 
 void handle_client_request(int client_fd);
 
+void send_internal_server_error(int client_fd) {
+	char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+	send(client_fd, error_message, strlen(error_message), 0);
+	close(client_fd);
+}
+
 typedef struct request_line 
 {
 	char* method;
@@ -83,9 +89,7 @@ void handle_client_request(int client_fd)
 	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
 
 	if (buffer == NULL) {
-		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-		send(client_fd, error_message, strlen(error_message), 0);
-		close(client_fd);
+		send_internal_server_error(client_fd);
 		return;
 	}
 
@@ -98,18 +102,14 @@ void handle_client_request(int client_fd)
 
 	if (recv_bytes == -1)
 	{
-		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-		send(client_fd, error_message, strlen(error_message), 0);
-		close(client_fd);
+		send_internal_server_error(client_fd);
 		return ;
 	}
 
 	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
 
 	if (raw_request_line == NULL) {
-		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-		send(client_fd, error_message, strlen(error_message), 0);
-		close(client_fd);
+		send_internal_server_error(client_fd);
 		return;
 	}
 
@@ -129,9 +129,7 @@ void handle_client_request(int client_fd)
 	char* raw_body = strstr(buffer, "\r\n\r\n");
 
 	if (raw_body == NULL) {
-		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-		send(client_fd, error_message, strlen(error_message), 0);
-		close(client_fd);
+		send_internal_server_error(client_fd);
 		return;
 	}
 
