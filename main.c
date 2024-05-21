@@ -81,6 +81,14 @@ int main(void)
 void handle_client_request(int client_fd) 
 {
 	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
+
+	if (buffer == NULL) {
+		char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+		send(client_fd, error_message, strlen(error_message), 0);
+		close(client_fd);
+		return;
+	}
+
 	int recv_bytes = 0;
 
 	recv_bytes = recv(client_fd, buffer, MAX_BUFFER_SIZE, 0);
