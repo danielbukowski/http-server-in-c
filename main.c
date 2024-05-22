@@ -100,7 +100,7 @@ void handle_client_request(int client_fd)
 	{
 		total_bytes += recv_bytes;
 
-		//it does not block the recv function in an infinited loop
+		//it does not block the recv function in an infinite loop
 		shutdown(client_fd, SHUT_RD);
 	}
 
