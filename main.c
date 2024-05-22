@@ -20,14 +20,14 @@ void send_internal_server_error(int client_fd) {
 	close(client_fd);
 }
 
-typedef struct request_line 
+typedef struct request_line
 {
 	char* method;
 	char* path;
 	char* version;
 } request_line;
 
-typedef struct request_details 
+typedef struct request_details
 {
 	request_line request_line;
 	char* headers;
@@ -37,26 +37,26 @@ typedef struct request_details
 int main(void)
 {
 	int sockfd;
-	struct addrinfo hints = { 
+	struct addrinfo hints = {
 		.ai_family = AF_INET,
 		.ai_socktype = SOCK_STREAM,
 		.ai_flags = AI_PASSIVE
 	};
 	struct addrinfo* res;
 
-	if (getaddrinfo(NULL, SERVER_PORT, &hints, &res) < 0) 
+	if (getaddrinfo(NULL, SERVER_PORT, &hints, &res) < 0)
 	{
 		perror("getaddrinfo");
 		return -1;
 	}
 
-	if ((sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0) 
+	if ((sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
 	{
 		perror("socket");
 		return -1;
 	}
 
-	if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0) 
+	if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0)
 	{
 		perror("bind");
 		return -1;
@@ -88,7 +88,8 @@ void handle_client_request(int client_fd)
 {
 	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
 
-	if (buffer == NULL) {
+	if (buffer == NULL) 
+	{
 		send_internal_server_error(client_fd);
 		return;
 	}
@@ -110,12 +111,13 @@ void handle_client_request(int client_fd)
 	if (recv_bytes == -1)
 	{
 		send_internal_server_error(client_fd);
-		return ;
+		return;
 	}
 
 	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
 
-	if (raw_request_line == NULL) {
+	if (raw_request_line == NULL)
+	{
 		send_internal_server_error(client_fd);
 		return;
 	}
@@ -126,7 +128,8 @@ void handle_client_request(int client_fd)
 		.version = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line)
 	};
 
-	if (request_line.version == NULL || strcmp(HTTP_SERVER_VERSION, request_line.version) != 0) {
+	if (request_line.version == NULL || strcmp(HTTP_SERVER_VERSION, request_line.version) != 0)
+	{
 		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
@@ -135,7 +138,8 @@ void handle_client_request(int client_fd)
 
 	char* raw_body = strstr(buffer, "\r\n\r\n");
 
-	if (raw_body == NULL) {
+	if (raw_body == NULL)
+	{
 		send_internal_server_error(client_fd);
 		return;
 	}
