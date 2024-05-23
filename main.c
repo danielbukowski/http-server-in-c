@@ -4,15 +4,26 @@
 #include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include "circular_queue.h"
 
 #define SERVER_PORT "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
-#define BACKLOG 5
-#define MAX_BUFFER_SIZE 8192
-
+#define BACKLOG 30
+#define MAX_BUFFER_SIZE 4096
 #define EMPTY_SPACE " "
+#define THREAD_POOL_SIZE 2
+
+static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t watch_queue_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static pthread_t thread_pool[THREAD_POOL_SIZE];
 
 void handle_client_request(int client_fd);
+
+void* watch_queue(void* arg);
 
 void send_internal_server_error(int client_fd) {
 	char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
@@ -69,22 +80,65 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	struct sockaddr_storage client_addr = { 0 };
-	socklen_t addr_size = sizeof client_addr;
+	circular_queue* queue = init_queue();
+	for (int i = 0; i < THREAD_POOL_SIZE; i++)
+	{
+		if (pthread_create(&thread_pool[i], NULL, watch_queue, queue) == -1)
+		{
+			perror("thread pool");
+			return -1;
+		}
+	}
 
 	int client_fd;
 	printf("Waiting for a connection...\n");
 
-	client_fd = accept(sockfd, (struct sockaddr*) &client_addr, &addr_size);
-	printf("Accepted a connection!\n");
+	while (true)
+	{
+		client_fd = accept(sockfd, NULL, 0);
 
-	handle_client_request(client_fd);
+		pthread_mutex_lock(&queue_lock); 
+		bool is_added = enqueue(queue, client_fd);
+		pthread_mutex_unlock(&queue_lock);
+
+		if (!is_added)
+		{
+			printf("Rejected a connection!\n");
+			close(client_fd);
+			continue;
+		}
+		pthread_cond_signal(&cond);
+		printf("Accepted a connection!\n");
+	}
 
 	freeaddrinfo(res);
+	free(queue);
 	return 0;
 }
 
-void handle_client_request(int client_fd) 
+void* watch_queue(void* arg)
+{
+	circular_queue* queue = (circular_queue*)arg;
+
+	while (true)
+	{
+		pthread_mutex_lock(&queue_lock);
+		int client_fd = dequeue(queue);
+;		pthread_mutex_unlock(&queue_lock);
+
+		if (client_fd != -1)
+		{
+			handle_client_request(client_fd);
+			continue;
+		}
+
+		pthread_cond_wait(&cond, &watch_queue_lock);
+	}
+
+	return NULL;
+}
+
+void handle_client_request(int client_fd)
 {
 	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
 
