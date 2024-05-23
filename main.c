@@ -97,7 +97,7 @@ void handle_client_request(int client_fd)
 	int recv_bytes = 0;
 	int total_bytes = 0;
 
-	while ((recv_bytes = recv(client_fd, buffer, (MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
+	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
 	{
 		total_bytes += recv_bytes;
 
@@ -105,20 +105,22 @@ void handle_client_request(int client_fd)
 		shutdown(client_fd, SHUT_RD);
 	}
 
-	buffer[total_bytes] = '\0';
-	char* ptr_buffer = buffer;
-
 	if (recv_bytes == -1)
 	{
 		send_internal_server_error(client_fd);
+		free(buffer);
 		return;
 	}
+
+	buffer[total_bytes] = '\0';
+	char* ptr_buffer = buffer;
 
 	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
 
 	if (raw_request_line == NULL)
 	{
 		send_internal_server_error(client_fd);
+		free(ptr_buffer);
 		return;
 	}
 
@@ -133,6 +135,7 @@ void handle_client_request(int client_fd)
 		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
 		close(client_fd);
+		free(ptr_buffer);
 		return;
 	}
 
@@ -141,6 +144,7 @@ void handle_client_request(int client_fd)
 	if (raw_body == NULL)
 	{
 		send_internal_server_error(client_fd);
+		free(ptr_buffer);
 		return;
 	}
 
