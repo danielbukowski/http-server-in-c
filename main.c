@@ -6,29 +6,21 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
+
 #include "circular_queue.h"
+#include "main.h"
 
 #define SERVER_PORT "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
 #define BACKLOG 256
 #define MAX_BUFFER_SIZE 4096
-#define EMPTY_SPACE " "
+#define BLANK_SPACE " "
 #define THREAD_POOL_SIZE 3
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
-
-void handle_client_request(int client_fd);
-
-void* watch_queue(void* arg);
-
-void send_internal_server_error(int client_fd) {
-	char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
-	send(client_fd, error_message, strlen(error_message), 0);
-	close(client_fd);
-}
 
 typedef struct request_line
 {
@@ -79,10 +71,10 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	circular_queue* queue = init_queue();
+	circular_queue* request_queue = init_queue();
 	for (int i = 0; i < THREAD_POOL_SIZE; i++)
 	{
-		if (pthread_create(&thread_pool[i], NULL, watch_queue, queue) == -1)
+		if (pthread_create(&thread_pool[i], NULL, listen_for_events, request_queue) == -1)
 		{
 			perror("thread pool");
 			return -1;
@@ -98,7 +90,7 @@ int main(void)
 
 		pthread_mutex_lock(&queue_lock); 
 
-		bool is_added = enqueue(queue, client_fd);
+		bool is_added = enqueue(request_queue, client_fd);
 		pthread_cond_signal(&queue_is_not_empty_cond);
 
 		pthread_mutex_unlock(&queue_lock);
@@ -113,18 +105,18 @@ int main(void)
 	}
 
 	freeaddrinfo(res);
-	free(queue);
+	free(request_queue);
 	return 0;
 }
 
-void* watch_queue(void* arg)
+void* listen_for_events(void* args)
 {
-	circular_queue* queue = (circular_queue*)arg;
+	circular_queue* request_queue = (circular_queue*) args;
 
 	while (true)
 	{
 		pthread_mutex_lock(&queue_lock);
-		int client_fd = dequeue(queue);
+		int client_fd = dequeue(request_queue);
 
 		if (client_fd == -1)
 		{
@@ -148,7 +140,7 @@ void handle_client_request(int client_fd)
 
 	if (buffer == NULL) 
 	{
-		send_internal_server_error(client_fd);
+		send_internal_server_error_response(client_fd);
 		return;
 	}
 
@@ -165,7 +157,7 @@ void handle_client_request(int client_fd)
 
 	if (recv_bytes == -1)
 	{
-		send_internal_server_error(client_fd);
+		send_internal_server_error_response(client_fd);
 		free(buffer);
 		return;
 	}
@@ -177,22 +169,21 @@ void handle_client_request(int client_fd)
 
 	if (raw_request_line == NULL)
 	{
-		send_internal_server_error(client_fd);
+		send_internal_server_error_response(client_fd);
 		free(ptr_buffer);
 		return;
 	}
 
 	request_line request_line = {
-		.method = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line),
-		.path = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line),
-		.version = strtok_r(raw_request_line, EMPTY_SPACE, &raw_request_line)
+		.method = strtok_r(raw_request_line, BLANK_SPACE, &raw_request_line),
+		.path = strtok_r(raw_request_line, BLANK_SPACE, &raw_request_line),
+		.version = strtok_r(raw_request_line, BLANK_SPACE, &raw_request_line)
 	};
 
 	if (request_line.version == NULL || strcmp(HTTP_SERVER_VERSION, request_line.version) != 0)
 	{
 		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
-		close(client_fd);
 		free(ptr_buffer);
 		return;
 	}
@@ -201,7 +192,7 @@ void handle_client_request(int client_fd)
 
 	if (raw_body == NULL)
 	{
-		send_internal_server_error(client_fd);
+		send_internal_server_error_response(client_fd);
 		free(ptr_buffer);
 		return;
 	}
@@ -234,4 +225,10 @@ void handle_client_request(int client_fd)
 	free(response);
 	free(ptr_buffer);
 	ptr_buffer = NULL;
+}
+
+void send_internal_server_error_response(int client_fd) {
+	char* error_message = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+	send(client_fd, error_message, strlen(error_message), 0);
+	close(client_fd);
 }
