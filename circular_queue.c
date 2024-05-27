@@ -5,7 +5,7 @@
 
 #include "circular_queue.h"
 
-#define QUEUE_SIZE 175
+#define QUEUE_SIZE 1024
 
 typedef struct circular_queue {
 	int elements[QUEUE_SIZE];

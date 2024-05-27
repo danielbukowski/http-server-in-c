@@ -10,12 +10,12 @@
 
 #define SERVER_PORT "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
-#define BACKLOG 30
+#define BACKLOG 256
 #define MAX_BUFFER_SIZE 4096
 #define EMPTY_SPACE " "
-#define THREAD_POOL_SIZE 2
+#define THREAD_POOL_SIZE 3
 
-static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t watch_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -98,7 +98,10 @@ int main(void)
 		client_fd = accept(sockfd, NULL, 0);
 
 		pthread_mutex_lock(&queue_lock); 
+
 		bool is_added = enqueue(queue, client_fd);
+		pthread_cond_signal(&queue_is_not_empty_cond);
+
 		pthread_mutex_unlock(&queue_lock);
 
 		if (!is_added)
@@ -107,7 +110,6 @@ int main(void)
 			close(client_fd);
 			continue;
 		}
-		pthread_cond_signal(&cond);
 		printf("Accepted a connection!\n");
 	}
 
@@ -132,7 +134,7 @@ void* watch_queue(void* arg)
 			continue;
 		}
 
-		pthread_cond_wait(&cond, &watch_queue_lock);
+		pthread_cond_wait(&queue_is_not_empty_cond, &watch_queue_lock);
 	}
 
 	return NULL;
