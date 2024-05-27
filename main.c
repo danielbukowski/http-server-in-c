@@ -17,7 +17,6 @@
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t watch_queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
 
@@ -126,15 +125,18 @@ void* watch_queue(void* arg)
 	{
 		pthread_mutex_lock(&queue_lock);
 		int client_fd = dequeue(queue);
-;		pthread_mutex_unlock(&queue_lock);
 
-		if (client_fd != -1)
+		if (client_fd == -1)
 		{
-			handle_client_request(client_fd);
-			continue;
+			pthread_cond_wait(&queue_is_not_empty_cond, &queue_lock);
 		}
 
-		pthread_cond_wait(&queue_is_not_empty_cond, &watch_queue_lock);
+;		pthread_mutex_unlock(&queue_lock);
+
+		if (client_fd > 0)
+		{
+			handle_client_request(client_fd);
+		}
 	}
 
 	return NULL;
