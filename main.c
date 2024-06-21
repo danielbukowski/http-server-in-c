@@ -209,15 +209,34 @@ void handle_client_request(int client_fd)
 		.body = &buffer[body_index + 4]
 	};
 
-	char* message = "Hello from the server";
-	char* response = calloc(1024, sizeof(char));
 
-	sprintf(response, "HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/plain; charset=UTF-8\r\n"
-		"Content-Length: %zu\r\n"
-		"\r\n"
-		"%s", strlen(message), message
-	);
+	char* method = request_details.request_line.method;
+	char* path = request_details.request_line.path;
+
+	char* response = malloc(1024 * sizeof(char));
+
+	if (strncmp(method, "GET", 3) == 0)
+	{
+		if (strlen(path) == 6 && strncmp(path, "/hello", 6) == 0)
+		{
+			char* message = "Hello from the server";
+			sprintf(response, "HTTP/1.1 200 OK\r\n"
+				"Content-Type: text/plain; charset=UTF-8\r\n"
+				"Connection: close\r\n"
+				"Content-Length: %zu\r\n"
+				"\r\n"
+				"%s", strlen(message), message
+			);
+		}
+		else
+		{
+			sprintf(response, "HTTP/1.1 404 Not Found\r\n\r\n");
+		}
+	}
+	else
+	{
+		sprintf(response, "HTTP/1.1 501 Not Implemented\r\n\r\n");
+	}
 
 	send(client_fd, response, strlen(response), 0);
 	close(client_fd);
