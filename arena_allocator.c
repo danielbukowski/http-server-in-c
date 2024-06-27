@@ -4,7 +4,7 @@
 
 #include "arena_allocator.h"
 
-#define MEMORY_ARENA_NUMBER  3
+#define MEMORY_ARENA_NUMBER   3
 #define MEMORY_ARENA_CAPACITY 4096
 
 enum MEMORY_ARENA_STATUS {
@@ -18,7 +18,7 @@ typedef struct memory_arena {
 } memory_arena;
 
 typedef struct arena_allocator {
-    char base[(sizeof(char) * MEMORY_ARENA_CAPACITY * MEMORY_ARENA_NUMBER) + sizeof(char) * MEMORY_ARENA_NUMBER];
+    char          base[(sizeof(char) * MEMORY_ARENA_CAPACITY * MEMORY_ARENA_NUMBER) + sizeof(char) * MEMORY_ARENA_NUMBER];
     memory_arena* arenas;
 } arena_allocator;
 
@@ -36,27 +36,27 @@ arena_allocator* init_arena_allocator()
     return arena;
 }
 
-char* allocate_memory_area(arena_allocator* arena)
+char* allocate_memory_area(arena_allocator* arena_allocator)
 {
     for (int i = 0; i < MEMORY_ARENA_NUMBER; i++)
     {
-        if (arena->arenas[i].status == FREE)
+        if (arena_allocator->arenas[i].status == FREE)
         {
-            arena->arenas[i].status = ALLOCATED;
-            return arena->arenas[i].arena_pointer;
+            arena_allocator->arenas[i].status = ALLOCATED;
+            return arena_allocator->arenas[i].arena_pointer;
         }
     }
 
     return NULL;
 }
 
-void free_memory_area(arena_allocator* arena, char* memory_arena)
+void free_memory_area(arena_allocator* arena_allocator, char* memory_arena)
 {
     for (int i = 0; i < MEMORY_ARENA_NUMBER; i++)
     {
-        if (arena->arenas[i].arena_pointer == memory_arena)
+        if (arena_allocator->arenas[i].arena_pointer == memory_arena)
         {
-            arena->arenas[i].status = FREE;
+            arena_allocator->arenas[i].status = FREE;
             return;
         }
     }
