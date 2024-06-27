@@ -1,4 +1,3 @@
-
 typedef struct circular_queue circular_queue;
 
 static bool isFull(circular_queue* queue);

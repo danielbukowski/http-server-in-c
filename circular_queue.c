@@ -5,17 +5,17 @@
 
 #include "circular_queue.h"
 
-#define QUEUE_SIZE 1024
+#define QUEUE_CAPACITY 1024
 
 typedef struct circular_queue {
-	int elements[QUEUE_SIZE];
+	int elements[QUEUE_CAPACITY];
 	int front;
 	int rear;
 } circular_queue;
 
 static bool isFull(circular_queue* queue) 
 {
-	return ((queue->front == queue->rear + 1) || (queue->front == 0 && queue->rear == QUEUE_SIZE - 1));
+	return ((queue->front == queue->rear + 1) || (queue->front == 0 && queue->rear == QUEUE_CAPACITY - 1));
 }
 
 static bool isEmpty(circular_queue* queue) 
@@ -37,12 +37,11 @@ circular_queue* init_queue()
 
 bool enqueue(circular_queue* queue, int element) 
 {
-	if (isFull(queue))
-		return false;
+	if (isFull(queue)) return false;
 
 	if (queue->front == -1) queue->front = 0;
 
-	queue->rear = (queue->rear + 1) % QUEUE_SIZE;
+	queue->rear = (queue->rear + 1) % QUEUE_CAPACITY;
 	queue->elements[queue->rear] = element;
 
 	return true;
@@ -50,10 +49,7 @@ bool enqueue(circular_queue* queue, int element)
 
 int dequeue(circular_queue* queue) 
 {
-	if (isEmpty(queue))
-	{
-		return -1;
-	}
+	if (isEmpty(queue)) return -1;
 
 	int element = queue->elements[queue->front];
 
@@ -64,7 +60,7 @@ int dequeue(circular_queue* queue)
 		return element;
 	}
 
-	queue->front = (queue->front + 1) % QUEUE_SIZE;
+	queue->front = (queue->front + 1) % QUEUE_CAPACITY;
 
 	return element;
 }
