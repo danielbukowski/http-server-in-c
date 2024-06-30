@@ -147,12 +147,19 @@ void handle_client_request(int client_fd)
 	int recv_bytes = 0;
 	int total_bytes = 0;
 
-	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
+	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_BUFFER_SIZE - total_bytes <= 0 ? 0 : MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
 	{
 		total_bytes += recv_bytes;
 
 		//it does not block the recv function in an infinite loop
 		shutdown(client_fd, SHUT_RD);
+
+		if (total_bytes >= MAX_BUFFER_SIZE)
+		{
+			char* response = "HTTP/1.1 413 Content Too Large\r\n\r\n";
+			send(client_fd, response, strlen(response), 0);
+			return;
+		}
 	}
 
 	if (recv_bytes == -1)
