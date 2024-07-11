@@ -7,15 +7,16 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#include "circular_queue.h"
 #include "main.h"
+#include "circular_queue.h"
+#include "arena_allocator.h"
 
-#define SERVER_PORT "8080"
+#define SERVER_PORT         "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
-#define BACKLOG 256
-#define MAX_BUFFER_SIZE 4096
-#define BLANK_SPACE " "
-#define THREAD_POOL_SIZE 3
+#define BACKLOG             256
+#define MAX_BUFFER_SIZE     4096
+#define BLANK_SPACE         " "
+#define THREAD_POOL_SIZE    3
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -32,17 +33,17 @@ typedef struct request_line
 typedef struct request_details
 {
 	request_line request_line;
-	char* headers;
-	char* body;
+	char*		 headers;
+	char*		 body;
 } request_details;
 
 int main(void)
 {
 	int sockfd;
 	struct addrinfo hints = {
-		.ai_family = AF_INET,
+		.ai_family =   AF_INET,
 		.ai_socktype = SOCK_STREAM,
-		.ai_flags = AI_PASSIVE
+		.ai_flags =    AI_PASSIVE
 	};
 	struct addrinfo* res;
 
@@ -88,7 +89,7 @@ int main(void)
 	{
 		client_fd = accept(sockfd, NULL, 0);
 
-		pthread_mutex_lock(&queue_lock); 
+		pthread_mutex_lock(&queue_lock);
 
 		bool is_added = enqueue(request_queue, client_fd);
 		pthread_cond_signal(&queue_is_not_empty_cond);
