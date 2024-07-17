@@ -19,7 +19,7 @@
 #define THREAD_POOL_SIZE    3
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
-static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t queue_lock =             PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t arena_allocator_lock =   PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
@@ -129,10 +129,13 @@ int main(void)
 
 void* listen_for_events(void* args)
 {
+	int client_fd;
+	char* buffer;
 	while (true)
 	{
+
 		pthread_mutex_lock(&queue_lock);
-		int client_fd = dequeue(request_queue);
+		client_fd = dequeue(request_queue);
 
 		if (client_fd == -1)
 		{
@@ -140,7 +143,7 @@ void* listen_for_events(void* args)
 			client_fd = dequeue(request_queue);
 		}
 
-;		pthread_mutex_unlock(&queue_lock);
+		pthread_mutex_unlock(&queue_lock);
 
 		if (client_fd > 0)
 		{
