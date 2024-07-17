@@ -23,6 +23,8 @@ static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
 
+static circular_queue* request_queue;
+
 typedef struct request_line
 {
 	char* method;
@@ -72,10 +74,16 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	circular_queue* request_queue = init_queue();
+	request_queue = init_queue();
+	if (request_queue == NULL)
+	{
+		perror("request_queue");
+		return -1;
+	}
+
 	for (int i = 0; i < THREAD_POOL_SIZE; i++)
 	{
-		if (pthread_create(&thread_pool[i], NULL, listen_for_events, request_queue) == -1)
+		if (pthread_create(&thread_pool[i], NULL, listen_for_events, NULL) == -1)
 		{
 			perror("thread pool");
 			return -1;
@@ -112,8 +120,6 @@ int main(void)
 
 void* listen_for_events(void* args)
 {
-	circular_queue* request_queue = (circular_queue*) args;
-
 	while (true)
 	{
 		pthread_mutex_lock(&queue_lock);
