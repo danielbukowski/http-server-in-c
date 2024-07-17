@@ -20,10 +20,12 @@
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t arena_allocator_lock =   PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
 
 static circular_queue* request_queue;
+static arena_allocator* arena;
 
 typedef struct request_line
 {
@@ -73,6 +75,13 @@ int main(void)
 		return -1;
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
+
+	arena = init_arena_allocator();
+	if (arena == NULL)
+	{
+		perror("arena_allocator");
+		return -1;
+	}
 
 	request_queue = init_queue();
 	if (request_queue == NULL)
@@ -135,18 +144,24 @@ void* listen_for_events(void* args)
 
 		if (client_fd > 0)
 		{
-			handle_client_request(client_fd);
+			pthread_mutex_lock(&arena_allocator_lock);
+			buffer = allocate_memory_area(arena);
+			pthread_mutex_unlock(&arena_allocator_lock);
+
+			handle_client_request(client_fd, buffer);
+
+			pthread_mutex_lock(&arena_allocator_lock);
+			free_memory_area(arena, buffer);
+			pthread_mutex_unlock(&arena_allocator_lock);
 		}
 	}
 
 	return NULL;
 }
 
-void handle_client_request(int client_fd)
+void handle_client_request(int client_fd, char* buffer)
 {
-	char* buffer = malloc(((MAX_BUFFER_SIZE + 1) * sizeof(char)));
-
-	if (buffer == NULL) 
+	if (buffer == NULL)
 	{
 		send_internal_server_error_response(client_fd);
 		return;
@@ -174,19 +189,16 @@ void handle_client_request(int client_fd)
 	if (recv_bytes == -1)
 	{
 		send_internal_server_error_response(client_fd);
-		free(buffer);
 		return;
 	}
 
 	buffer[total_bytes] = '\0';
-	char* ptr_buffer = buffer;
 
 	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
 
 	if (raw_request_line == NULL)
 	{
 		send_internal_server_error_response(client_fd);
-		free(ptr_buffer);
 		return;
 	}
 
@@ -200,7 +212,6 @@ void handle_client_request(int client_fd)
 	{
 		char* error_message = "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n";
 		send(client_fd, error_message, strlen(error_message), 0);
-		free(ptr_buffer);
 		return;
 	}
 
@@ -209,7 +220,6 @@ void handle_client_request(int client_fd)
 	if (raw_body == NULL)
 	{
 		send_internal_server_error_response(client_fd);
-		free(ptr_buffer);
 		return;
 	}
 
@@ -256,10 +266,7 @@ void handle_client_request(int client_fd)
 
 	send(client_fd, response, strlen(response), 0);
 	close(client_fd);
-
 	free(response);
-	free(ptr_buffer);
-	ptr_buffer = NULL;
 }
 
 void send_internal_server_error_response(int client_fd) {
