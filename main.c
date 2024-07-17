@@ -148,6 +148,7 @@ void handle_client_request(int client_fd)
 	int recv_bytes = 0;
 	int total_bytes = 0;
 
+	//Do I need this (recv function) in a while loop??
 	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_BUFFER_SIZE - total_bytes <= 0 ? 0 : MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
 	{
 		total_bytes += recv_bytes;
