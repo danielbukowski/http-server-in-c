@@ -128,6 +128,7 @@ void* listen_for_events(void* args)
 		if (client_fd == -1)
 		{
 			pthread_cond_wait(&queue_is_not_empty_cond, &queue_lock);
+			client_fd = dequeue(request_queue);
 		}
 
 ;		pthread_mutex_unlock(&queue_lock);
