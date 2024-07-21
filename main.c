@@ -181,7 +181,7 @@ void handle_client_request(int client_fd, char* buffer)
 		//it does not block the recv function in an infinite loop
 		shutdown(client_fd, SHUT_RD);
 
-		if (total_bytes >= MAX_BUFFER_SIZE)
+		if (total_bytes > MAX_BUFFER_SIZE)
 		{
 			char* response = "HTTP/1.1 413 Content Too Large\r\n\r\n";
 			send(client_fd, response, strlen(response), 0);
