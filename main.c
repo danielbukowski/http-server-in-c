@@ -14,7 +14,7 @@
 #define SERVER_PORT         "8080"
 #define HTTP_SERVER_VERSION "HTTP/1.1"
 #define BACKLOG             256
-#define MAX_BUFFER_SIZE     4096
+#define MAX_REQUEST_SIZE    4096
 #define BLANK_SPACE         " "
 #define THREAD_POOL_SIZE    3
 
@@ -170,18 +170,18 @@ void handle_client_request(int client_fd, char* buffer)
 		return;
 	}
 
-	int recv_bytes = 0;
+	ssize_t recv_bytes = 0;
 	int total_bytes = 0;
 
 	//Do I need this (recv function) in a while loop??
-	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_BUFFER_SIZE - total_bytes <= 0 ? 0 : MAX_BUFFER_SIZE - total_bytes), 0)) > 0)
+	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_REQUEST_SIZE - total_bytes <= 0 ? 0 : MAX_REQUEST_SIZE - total_bytes), 0)) > 0)
 	{
 		total_bytes += recv_bytes;
 
 		//it does not block the recv function in an infinite loop
 		shutdown(client_fd, SHUT_RD);
 
-		if (total_bytes > MAX_BUFFER_SIZE)
+		if (total_bytes > MAX_REQUEST_SIZE)
 		{
 			char* response = "HTTP/1.1 413 Content Too Large\r\n\r\n";
 			send(client_fd, response, strlen(response), 0);
@@ -232,7 +232,7 @@ void handle_client_request(int client_fd, char* buffer)
 
 	request_details request_details = {
 		.request_line = request_line,
-		//skip '\n\ character
+		//skip '\n' character
 		.headers = buffer + 1,
 		//skip '\r\n\r\n' characters
 		.body = &buffer[body_index + 4]
