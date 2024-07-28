@@ -76,7 +76,7 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	arena = init_arena_allocator();
+	arena = init_arena_allocator(MAX_REQUEST_SIZE, THREAD_POOL_SIZE);
 	if (arena == NULL)
 	{
 		perror("arena_allocator");
