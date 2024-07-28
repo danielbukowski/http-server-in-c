@@ -14,14 +14,13 @@
 #define SERVER_PORT            "8080"
 #define HTTP_SERVER_VERSION    "HTTP/1.1"
 #define BACKLOG                256
-#define MAX_REQUEST_SIZE       4096
+#define MAX_BUFFER_CAPACITY    4096
 #define BLANK_SPACE            " "
 #define THREAD_POOL_SIZE       3
 #define REQUEST_QUEUE_CAPACITY 1024
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock =             PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t arena_allocator_lock =   PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t thread_pool[THREAD_POOL_SIZE];
 
@@ -41,6 +40,12 @@ typedef struct request_details
 	char*		 headers;
 	char*		 body;
 } request_details;
+
+typedef struct thread_parameters {
+	char*  request_buffer;
+	char*  response_buffer;
+	int    buffer_capacity;
+} thread_parameters;
 
 int main(void)
 {
@@ -77,7 +82,7 @@ int main(void)
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
 
-	arena = init_arena_allocator(MAX_REQUEST_SIZE, THREAD_POOL_SIZE);
+	arena = init_arena_allocator(MAX_BUFFER_CAPACITY, THREAD_POOL_SIZE * 2);
 	if (arena == NULL)
 	{
 		perror("arena_allocator");
@@ -93,7 +98,18 @@ int main(void)
 
 	for (int i = 0; i < THREAD_POOL_SIZE; i++)
 	{
-		if (pthread_create(&thread_pool[i], NULL, listen_for_events, NULL) == -1)
+		thread_parameters thread_params = { 0 };
+		thread_params.request_buffer = allocate_memory_area(arena);
+		thread_params.response_buffer = allocate_memory_area(arena);
+		thread_params.buffer_capacity = MAX_BUFFER_CAPACITY;
+
+		if (thread_params.request_buffer == NULL || thread_params.response_buffer == NULL)
+		{
+			perror("allocated_memory_arena");
+			return -1;
+		}
+
+		if (pthread_create(&thread_pool[i], NULL, listen_for_events, &thread_params) == -1)
 		{
 			perror("thread pool");
 			return -1;
@@ -131,7 +147,8 @@ int main(void)
 void* listen_for_events(void* args)
 {
 	int client_fd;
-	char* buffer;
+	thread_parameters* parameters = args;
+
 	while (true)
 	{
 
@@ -148,41 +165,27 @@ void* listen_for_events(void* args)
 
 		if (client_fd > 0)
 		{
-			pthread_mutex_lock(&arena_allocator_lock);
-			buffer = allocate_memory_area(arena);
-			pthread_mutex_unlock(&arena_allocator_lock);
-
-			handle_client_request(client_fd, buffer);
-
-			pthread_mutex_lock(&arena_allocator_lock);
-			free_memory_area(arena, buffer);
-			pthread_mutex_unlock(&arena_allocator_lock);
+			handle_client_request(client_fd, parameters->request_buffer, parameters->response_buffer, parameters->buffer_capacity );
 		}
 	}
 
 	return NULL;
 }
 
-void handle_client_request(int client_fd, char* buffer)
+void handle_client_request(int client_fd, char* request_buffer, char* response_buffer, int max_buffer_capacity)
 {
-	if (buffer == NULL)
-	{
-		send_internal_server_error_response(client_fd);
-		return;
-	}
-
 	ssize_t recv_bytes = 0;
 	int total_bytes = 0;
 
 	//Do I need this (recv function) in a while loop??
-	while ((recv_bytes = recv(client_fd, &buffer[total_bytes], (MAX_REQUEST_SIZE - total_bytes <= 0 ? 0 : MAX_REQUEST_SIZE - total_bytes), 0)) > 0)
+	while ((recv_bytes = recv(client_fd, &request_buffer[total_bytes], (max_buffer_capacity - total_bytes <= 0 ? 0 : max_buffer_capacity - total_bytes), 0)) > 0)
 	{
 		total_bytes += recv_bytes;
 
 		//it does not block the recv function in an infinite loop
 		shutdown(client_fd, SHUT_RD);
 
-		if (total_bytes > MAX_REQUEST_SIZE)
+		if (total_bytes > max_buffer_capacity)
 		{
 			char* response = "HTTP/1.1 413 Content Too Large\r\n\r\n";
 			send(client_fd, response, strlen(response), 0);
@@ -196,9 +199,9 @@ void handle_client_request(int client_fd, char* buffer)
 		return;
 	}
 
-	buffer[total_bytes] = '\0';
+	request_buffer[total_bytes] = '\0';
 
-	char* raw_request_line = strtok_r(buffer, "\r\n", &buffer);
+	char* raw_request_line = strtok_r(request_buffer, "\r\n", &request_buffer);
 
 	if (raw_request_line == NULL)
 	{
@@ -219,32 +222,30 @@ void handle_client_request(int client_fd, char* buffer)
 		return;
 	}
 
-	char* raw_body = strstr(buffer, "\r\n\r\n");
-
+	char* raw_body = strstr(request_buffer, "\r\n\r\n");
 	if (raw_body == NULL)
 	{
 		send_internal_server_error_response(client_fd);
 		return;
 	}
 
-	size_t body_index = raw_body - buffer;
+	size_t body_index = raw_body - request_buffer;
 
-	buffer[body_index] = '\0';
+	request_buffer[body_index] = '\0';
 
 	request_details request_details = {
 		.request_line = request_line,
 		//skip '\n' character
-		.headers = buffer + 1,
+		.headers = request_buffer + 1,
 		//skip '\r\n\r\n' characters
-		.body = &buffer[body_index + 4]
+		.body = &request_buffer[body_index + 4]
 	};
 
 
 	char* method = request_details.request_line.method;
 	char* path = request_details.request_line.path;
-
-	char* response = malloc(1024 * sizeof(char));
-
+	
+	char* response = response_buffer;
 	if (strncmp(method, "GET", 3) == 0)
 	{
 		if (strlen(path) == 6 && strncmp(path, "/hello", 6) == 0)
@@ -270,7 +271,6 @@ void handle_client_request(int client_fd, char* buffer)
 
 	send(client_fd, response, strlen(response), 0);
 	close(client_fd);
-	free(response);
 }
 
 void send_internal_server_error_response(int client_fd) {

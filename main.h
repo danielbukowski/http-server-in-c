@@ -1,4 +1,4 @@
-void handle_client_request(int client_fd, char* buffer);
+void handle_client_request(int client_fd, char* request_buffer, char* response_buffer, int max_buffer_capacity);
 
 void* listen_for_events(void* arg);
 
