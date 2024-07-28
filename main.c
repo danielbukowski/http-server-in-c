@@ -11,12 +11,13 @@
 #include "circular_queue.h"
 #include "arena_allocator.h"
 
-#define SERVER_PORT         "8080"
-#define HTTP_SERVER_VERSION "HTTP/1.1"
-#define BACKLOG             256
-#define MAX_REQUEST_SIZE    4096
-#define BLANK_SPACE         " "
-#define THREAD_POOL_SIZE    3
+#define SERVER_PORT            "8080"
+#define HTTP_SERVER_VERSION    "HTTP/1.1"
+#define BACKLOG                256
+#define MAX_REQUEST_SIZE       4096
+#define BLANK_SPACE            " "
+#define THREAD_POOL_SIZE       3
+#define REQUEST_QUEUE_CAPACITY 1024
 
 static pthread_cond_t queue_is_not_empty_cond = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t queue_lock =             PTHREAD_MUTEX_INITIALIZER;
@@ -83,7 +84,7 @@ int main(void)
 		return -1;
 	}
 
-	request_queue = init_queue();
+	request_queue = init_queue(REQUEST_QUEUE_CAPACITY);
 	if (request_queue == NULL)
 	{
 		perror("request_queue");
