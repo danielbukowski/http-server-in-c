@@ -59,25 +59,25 @@ int main(void)
 
 	if (getaddrinfo(NULL, SERVER_PORT, &hints, &res) < 0)
 	{
-		perror("getaddrinfo");
+		fprintf(stderr, "failed to get an address info");
 		return -1;
 	}
 
 	if ((sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
 	{
-		perror("socket");
+		fprintf(stderr, "failed to create a socket");
 		return -1;
 	}
 
 	if (bind(sockfd, res->ai_addr, res->ai_addrlen) < 0)
 	{
-		perror("bind");
+		fprintf(stderr, "failed to bind a socket to the address");
 		return -1;
 	}
 
 	if (listen(sockfd, BACKLOG) < 0)
 	{
-		perror("listen");
+		fprintf(stderr, "failed to set accepting connections");
 		return -1;
 	}
 	printf("Listening on port %s\n", SERVER_PORT);
@@ -85,14 +85,14 @@ int main(void)
 	arena = init_arena_allocator(MAX_BUFFER_CAPACITY, THREAD_POOL_SIZE * 2);
 	if (arena == NULL)
 	{
-		perror("arena_allocator");
+		fprintf(stderr, "failed to initialize an arena allocator");
 		return -1;
 	}
 
 	request_queue = init_queue(REQUEST_QUEUE_CAPACITY);
 	if (request_queue == NULL)
 	{
-		perror("request_queue");
+		fprintf(stderr, "failed to initialize a circular queue");
 		return -1;
 	}
 
@@ -105,13 +105,13 @@ int main(void)
 
 		if (thread_params.request_buffer == NULL || thread_params.response_buffer == NULL)
 		{
-			perror("allocated_memory_arena");
+			fprintf(stderr, "failed to bind a memory arena to a thread");
 			return -1;
 		}
 
 		if (pthread_create(&thread_pool[i], NULL, listen_for_events, &thread_params) == -1)
 		{
-			perror("thread pool");
+			fprintf(stderr, "failed to create %dth thread ", i);
 			return -1;
 		}
 	}
